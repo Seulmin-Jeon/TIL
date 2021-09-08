@@ -8,7 +8,7 @@ for tc in range(1, T+1):
 
     ans = 1
     for i in range(9):
-        # visited 리스트 (인덱스에 해당하는 숫자가 아직 안나왔으면 0(초기값), 나오면 1로 바꿈)
+
         # 가로
         row = [0] * 10
         for j in range(9):
@@ -27,7 +27,7 @@ for tc in range(1, T+1):
 
     # 3x3
     for i in range(0, 9, 3):
-        for j in range(0, 9 ,3):
+        for j in range(0, 9, 3):
 
             square = [0] * 10
             for n in range(3):
