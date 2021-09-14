@@ -33,7 +33,7 @@ ex. my_app/static/my_app/example.jpg
 
 - `STATIC_URL`
 
-: STATIC_ROOT에 있는 정적 파일을 참조할 떄 사용하는 URL
+: STATIC_ROOT에 있는 정적 파일을 참조할 때 사용하는 URL
 
 : 정적 파일들이 저장되어 있는 기본경로('app/static/')와 STATICFILES_DIRS에 정의된 추가 경로들을 탐색
 
@@ -68,28 +68,6 @@ cf. `STATIC_ROOT`
 
 
 
-
-
-enctype
-
-https://developer.mozilla.org/ko/docs/Web/HTML/Element/form
-
-글자 넣을 때는 신경x 디폴트값
-
-글자가 아닌 데이터를 넣을 때는 form.html의 form에 enctype="multipart/form-data" 추가
-
-
-
-views.py - create 의 is_valid를 통과하지 못함
-
-사진은 POST가 아닌 FILES에 있음
-
-
-
-
-
-
-
 ### Media file
 
 : 사용자가 업로드하는 정적 파일
@@ -110,20 +88,42 @@ class MyModel(models.Model):
     # 1) MEDIA_ROOT/uploads/에 업로드
     upload = models.FileField(upload_to='uploads/')
     # 2) MEDIA_ROOT/uploads/2021/09/09/에 업로드
-    upload = models.FileField(upload_to='uploads/%Y/%m.%d/')
+    upload = models.FileField(upload_to='uploads/%Y/%m/%d/')
 ```
 
-
+ 
 
 2. 함수 호출
 
-```python
+: 특정 함수가 경로를 리턴, 리턴값을 결과값으로 사용
 
+** 함수 인자는 반드시 2개! => instance, filename
+
+```python
+# models.py (ex. )
+def articles_image_path(instance, filename):
+    return f'user_{instance.user.pk}/{filename}'
+		# MEDIA_ROOT/user_<pk>/ 경로로 <filename> 이름으로 업로드
+
+class Article(models.Model):
+    image = models.ImageField(upload_to=articles_image_path)
 ```
 
+- instance
+
+: FileField가 정의된 모델의 인스턴스
+
+: 아직 데이터베이스에 객체가 저장되기 전이기 때문에 pk 값이 없을 수 있음 (None으로 저장됨 , 이후 수정시 pk값으로 변경)
+
+- filename
+
+: 기존 파일에 제공된 파일 이름
 
 
-##### 이미지 업로드 (CREATE)
+
+
+
+#### 이미지 업로드 (CREATE)
 
 - `ImageField`
 
@@ -163,7 +163,7 @@ class MyModel(models.Model):
 
 (DB에는 업로드된 파일이 저장되지 않고 파일의 경로가 저장됨)
 
-```PYTHON
+```python
 # settings.py에 경로 지정 (폴더는 사용자가 업로드하면 자동 생성됨)
 MEDIA_ROOT = BASE_DIR / 'media'
 ```
@@ -174,7 +174,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 : MEDIA_ROOT에서 제공되는 미디어파일(업로드 된 파일)의 URL을 만들어 줌
 
-```PYTHON
+```python
 # settings.py
 MEDIA_URL = '/media/'
 ```
@@ -209,6 +209,10 @@ urlpatterns = [
 pip install Pillow
 ```
 
+```
+pip install django-imagekit
+```
+
 +
 
 ```
@@ -225,15 +229,86 @@ python manage.py migrate
 
 
 
+- ##### form태그에 `enctype="multipart/form-data"` 추가
+
+```python
+# form 태그에 enctype 속성 지정
+<form action="{% url 'articles:create' %}" method="POST" enctype="multipart/form-data">
+```
+
+: 파일/이미지 업로드 시 반드시 사용해야 함 (전송되는 데이터의 형식을 지정)
+
+( <input type="file"> 을 사용하는 경우)
+
+https://developer.mozilla.org/ko/docs/Web/HTML/Element/form
+
+
+
+- ##### views.py > 함수에 `request.FILES` 추가
+
+: 이미지는 request.POST가 아닌 request.FILES에 있음 => is_valid()를 통과하지 못함
+
+```python
+def create(request):
+    if request.method == 'POST':
+        form = ArticleForm(request.POST, request.FILES)
+        if form.is_valid():
+            article = form.save()
+            return redirect('articles:detail', article.pk)
+    else:
+        form = ArticleForm()
+    context = {
+        'form': form,
+    }
+    return render(request, 'articles/create.html', context)
+```
+
+
+
+##### cf. input 태그 > accept="image/*" (고유 파일 유형 지정자)
+
+![image-20210909024127432](image_media.assets/image-20210909024127432.png)
+
+: 입력 허용할 파일 유형을 나타내는 문자열
+
+: 파일 검증을 하는 것은 아님 (이미지를 accept 하더라도 비디오나 오디오 파일 제출 가능)
 
 
 
 
 
+#### 이미지 조회 (READ)
 
-- settings.MEDIA_URL = /media/
+- `article.image.url` => 업로드 파일의 경로
+- `article.image` => 업로드 파일의 파일 이름
 
-(단순히 변수화 한 것)
+```python
+<img src="{{ article.image.url }}" alt="{{ article,image }}">
+```
+
+
+
+
+
+#### 이미지 업로드 (UPDATE)
+
+- 이미지 일부만 수정하는 것 불가 => 새로운 이미지로 덮어씌우기
+- create 함수와 동일
+  - update.html > form태그에 `enctype="multipart/form-data"` 추가
+  - views.py > 함수에 `request.FILES` 추가 (* 키워드인자보다 앞에 쓰기 or files=request.FILES라고 명시)
+
+- 이미지 파일이 없는 게시글의 경우 Detail 페이지에 ValueError 발생
+
+```html
+# 방법 1 (if문)
+{% if article.image %}
+	<img src"{{ article.image.url }}" alt="{{ article.image }}">
+​```
+{% else %}
+	<img src="{% static 'image/default.jpg' %}" alt="default image">
+​```
+{% endif %}
+```
 
 
 
@@ -283,6 +358,3 @@ class Profile(models.Model):
 (+ models.py 수정 => makemigrations/migrate 다시 하기
 
 ** ProcessedImageField() 내의 요소만 변경하는 경우는 makemigrations할 필요없음 (해보면 변경사항 없다고 뜸))
-
-
-

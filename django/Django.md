@@ -47,6 +47,16 @@ pip install django django_extensions
 pip freeze > requirements.txt
 ```
 
+cf. requirements.txt.  다운
+
+```
+pip install -r requirements.txt
+```
+
+- 가상환경 켜기 전에 다운하면 전역에 설치, 가상환경 켜고 다운하면 가상환경 내에만 설치됨
+
+  (다른 사람 프로젝트 다운 받으면 가상환경부터 설정하고 세팅)
+
 
 
 3. 프로젝트 파일 생성
@@ -55,7 +65,7 @@ pip freeze > requirements.txt
 django-admin startproject <프로젝트 이름> .
 ```
 
--  . 빼먹지 말기
+-  . 빼먹지 말기!!!!
 
 
 
@@ -69,49 +79,25 @@ python manage.py startapp <앱 이름>
 
 
 
-5. base.html 만들기
-
-```python
-mkdir templates
-```
-
-- templates 폴더 안에 base.html 만들기
-- 프로젝트 파일 - settings.py - TEMPLATES 에서 'DIRS' : [BASE_DIR / 'templates'] 쓰기
-
-
-
 
 
 - ### 시작
 
+1. 앱 폴더, 프로젝트 폴더와 같은 레벨에 templates 폴더 > base. html
 
-1. 앱 폴더 - models.py에서 클래스 생성, 변수(필드명) 쓰기
-
-```python
-+
-def __ str __(self):
-	return self.<변수명>
+```
+mkdir templates
 ```
 
-
-
-** models.py에 수정사항이 생기면 migrate 다시 하기
-
-```python
-python manage.py makemigrations
+```
+base.html
 ```
 
-```python
-python manage.py migrate
-```
-
-
-
-서버 실행
-
-```python
-python manage.py runserver
-```
+- ! + tab 해서 기본구조
+- 부트스트랩 css, javascript 파일 불러오기
+- body에 `{% block content %}` `{% endblock content %}` 넣기!!
+- 프로젝트 파일 - settings.py - TEMPLATES 에서 'DIRS' : [BASE_DIR / 'templates'] 쓰기
+- 상속받을 html파일 최상단에 {% extends 'base.html' %}
 
 
 
@@ -125,6 +111,8 @@ path('<앱 이름>/', include('<앱 이름>.urls'))
 ```
 
 
+
+##### < urls.py - views.py - html >
 
 3. 앱 폴더 - urls.py 파일 생성
 
@@ -147,6 +135,61 @@ urlpatterns = [
 	path(),
 	path(),
 ]
+```
+
+
+
+6. 앱 폴더 - models.py에서 클래스 생성, 변수(필드명) 쓰기
+
+```python
+class <모델명>(models.Model):
+    <변수명> = models. ~ ()
+    <변수명> = models. ~ ()
+    ...
++
+	def __ str __(self):
+		return self.<변수명>
+    	# or
+        return f'{self.pk}: {self.title}'
+```
+
+** models.py에 수정사항이 생기면 migrate 다시 하기
+
+```python
+python manage.py makemigrations
+```
+
+```python
+python manage.py migrate
+```
+
+
+
+관리자 페이지
+
+```python
+python manage.py createsuperuser
+```
+
+```python
+# admin.py
+from .models import <모델명>
+
+admin.site.register(<모델명>)
+```
+
+
+
+4. forms.py 생성
+
+```python
+from django import forms
+from .models import Article
+
+class ArticleForm(forms.ModelForm):
+    class Meta():
+        model = Article
+        fields = '__all__'
 ```
 
 
@@ -177,6 +220,14 @@ def delete():
     pass
 ```
 
+```python
+articles = Article.objects.all()
+articles = Article.objects.order_by('-pk')   # pk가 높은 순으로 내림차순
+article = Article.objects.get(pk=pk)
+```
+
+
+
 + 추가
 
 ```python
@@ -197,47 +248,21 @@ from django.views.decorators.http import require_http_methods, require_POST, req
 
 
 
-5. templates 폴더 2개 생성
+5. 앱 폴더에 templates 폴더 생성 >  앱 이름으로 하위 폴더 생성 > html 파일들
 
 ```
-# 앱 폴더 내의 templates 폴더
 index.html
 detail.html
 form.html
 ```
 
-+
-
-```
-# 앱 폴더, 프로젝트 폴더와 같은 레벨에 templates 폴더
-base.html
-```
 
 
-
-6. base. html
-
-- ! + tab 해서 기본구조
-- 부트스트랩 css, jagascript 파일 불러오기
-- body에 `{% block content %}` `{% endblock content %}` 넣기!!
-
-
-
-7. forms.py 생성
+서버 실행
 
 ```python
-from django import forms
-from .models import Article
-
-class ArticleForm(forms.ModelForm):
-    class Meta():
-        model = Article
-        fields = '__all__'
+python manage.py runserver
 ```
-
-
-
-
 
 
 
@@ -263,14 +288,6 @@ class Article(models.Model):
     content = models.TextField()
 ```
 
-```python
-# forms.py
-class ArticleForm(forms.ModelForm):
-    class Meta():
-        model = Article
-        fields = '__all__'
-```
-
 
 
 # views.py 함수 코드
@@ -289,6 +306,22 @@ def index(request):
     return render(request, 'articles/index.html', context)
 ```
 
+##### ex. index.html
+
+```html
+{% extends 'base.html' %}
+
+{% block content %}
+<ul>
+	{% for article in articles %}
+	<li>
+		<a href={% url 'articles:detail' article.pk %}>{{ article.title }}</a>
+	</li>
+	{% endfor %}  
+</ul>
+{% endblock content %}
+```
+
 
 
 ### create
@@ -301,9 +334,16 @@ def create(request):
     if request.method == 'POST':
         form = ArticleForm(request.POST)
         
+        # 1. index페이지로 redirect
         if form.is_valid():
             form.save()
             return redirect('articles:index')
+        
+        # or
+        # 2. detail페이지로 redirect
+        if form.is_valid():
+            article = form.save()
+            return redirect('articles:detail', article.pk)
     else:
         form = ArticleForm()
         
@@ -313,6 +353,28 @@ def create(request):
     
     return render(request, 'articles/index.html', context)
 ```
+
+##### ex. form.html
+
+```python
+{% extends 'base.html'%}
+
+{% block content %}
+
+<form action="" method="POST">     # action="" 비워두면 같은 위치로 요청 보냄, 방식은 POST로 변경
+	{% csrf_token %}
+    {{ form.as_p }}
+	<button>제출</button>    # 자동으로 type="submit"으로 설정됨  => <input type="submit">과 같은 역할
+</form>
+
+{% endblock content %}
+```
+
+- <label> & <input> 쌍 출력 옵션
+
+1. as_p() : 각 필드가 <p>태그로 감싸져서 렌더링
+2. as_ul() : 각 필드가 <li>태그로 감싸져서 렌더링 (<ul> 태그는 직접 작성해야 함)
+3. as_table() : 각 필드가 <tr>태그로 감싸져서 렌더링 (<table> 태그는 직접 작성해야 함)
 
 
 
@@ -357,6 +419,23 @@ def delete(request, pk):
     else:
         return redirect('articles:detail', article.pk)
 ```
+
+
+
+
+
+# Django Form
+
+- 역할
+
+1. 유효성 검사 (data validation)
+2. HTML (<input>) 생성
+
+
+
+- workflow
+
+![image-20210912122214210](Django.assets/image-20210912122214210.png)
 
 
 
@@ -421,7 +500,7 @@ Add to INSTALLED_APPS in your `settings.py`:
 {% endblock content %}
 ```
 
-
+- {{ form }} => {% bootstrap_form form %}
 
 
 
